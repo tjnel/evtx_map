@@ -4,6 +4,7 @@ import logging
 import re
 import os
 import argparse
+import datetime
 import pandas as pd
 import Evtx.Evtx as evtx
 from geolite2 import geolite2
@@ -68,7 +69,13 @@ def main():
             try:
                 save_out_to_file(results, args.out_file)
             except:
-                log.error("Unable to write results to file")
+                log.error("Unable to write results to file: {}".format(args.out_file))
+        if args.export:
+            try:
+                save_df_to_sql(df)
+            except:
+                log.error("Unable to create sqlite3 database file")
+
     else:
         log.error("No remote connection events were found in these evtx logs")
 
@@ -82,7 +89,19 @@ def save_df_to_sql(df):
     pass
 
 def save_out_to_file(results, out_file):
-    pass
+    '''
+    Will take the results and write them to a file
+    :param results:
+    :param out_file:
+    :return:
+    '''
+    if isfile(out_file):
+        log.error("{} is already a file!")
+        out_file += datetime.now().strftime("%Y%m%d-%H%M%S")
+
+    with open(out_file + '.out', 'a') as out:
+        out.write(results)
+    return
 
 def print_evtx_stats(df):
     '''

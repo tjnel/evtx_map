@@ -248,6 +248,7 @@ Scripts/
 # Test
 test/
 output/
+*.out
 
 # Shared
 pyvenv.cfg
@@ -274,5 +275,14 @@ $RECYCLE.BIN/
 # Windows shortcuts
 *.lnk
 
+
+### Database ###
+*.accdb
+*.db
+*.dbf
+*.mdb
+*.pdb
+*.sql
+*.sqlite3
 
 # End of https://www.gitignore.io/api/osx,venv,python,windows,pycharm+all,jetbrains+all
