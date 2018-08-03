@@ -4,7 +4,9 @@ import logging
 import re
 import os
 import argparse
-import datetime
+import time
+
+import sqlite3
 import pandas as pd
 import Evtx.Evtx as evtx
 from geolite2 import geolite2
@@ -68,13 +70,15 @@ def main():
         if args.out_file:
             try:
                 save_out_to_file(results, args.out_file)
-            except:
-                log.error("Unable to write results to file: {}".format(args.out_file))
+            except Exception as e:
+                log.error("Unable to write results to file: {} [{}]".format(args.out_file, e))
         if args.export:
             try:
-                save_df_to_sql(df)
-            except:
-                log.error("Unable to create sqlite3 database file")
+                db_info = save_df_to_sql(df)
+                if db_info:
+                    log.info("Saved data to {}".format(db_info))
+            except Exception as e:
+                log.error("Unable to create sqlite3 database file: {}".format(e))
 
     else:
         log.error("No remote connection events were found in these evtx logs")
@@ -86,7 +90,15 @@ def save_df_to_sql(df):
     :param df:
     :return:
     '''
-    pass
+    db_name = str(time.time())+".db"
+    log.info("Attempting to save sqlite3 db as {}".format(db_name))
+    try:
+        connection = sqlite3.connect(db_name)
+        df.to_sql('remote_rdp_conn', connection, if_exists='append', index=False)
+    except Exception as e:
+        log.error("Unable to save db: {} [{}]".format(db_name, e))
+        return False
+    return(db_name)
 
 def save_out_to_file(results, out_file):
     '''
@@ -97,9 +109,9 @@ def save_out_to_file(results, out_file):
     '''
     if isfile(out_file):
         log.error("{} is already a file!")
-        out_file += datetime.now().strftime("%Y%m%d-%H%M%S")
+        out_file = '.'.join(out_file.split('.')[:-1]) + '_' + str(time.time()) + '.' + out_file.split('.')[-1]
 
-    with open(out_file + '.out', 'a') as out:
+    with open(out_file, 'a') as out:
         out.write(results)
     return
 
