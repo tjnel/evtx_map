@@ -21,7 +21,7 @@ parse_evtx_re = re.compile(r"SystemTime=\"(.*)\"></TimeCreated>.*<Computer>([aA-
 # INITIATORS
 log = logging.getLogger("evtx_map-logger")
 reader = geolite2.reader()
-connections_df = pd.DataFrame(columns=COLUMN_NAMES)
+df = pd.DataFrame(columns=COLUMN_NAMES)
 
 
 def main():
@@ -44,6 +44,7 @@ def main():
         logging.basicConfig(level=os.environ.get("LOGLEVEL", "INFO"))
 
     log.info("Starting evtx_map...")
+    log.info("Using the following arguments for evtx_map: {}".format(args))
 
     if not args.input:
         log.error("No input file provided {}".format(input))
@@ -52,6 +53,7 @@ def main():
     log.info("found the following files => {}".format(file_list))
 
     #This will iterate over every file and extract data to be put inside a dataframe
+    evtx_file: str
     for idx, evtx_file in enumerate(file_list):
         log.info("Processing {} via evtx_map".format(evtx_file))
         if os.path.isfile(evtx_file):
@@ -59,8 +61,14 @@ def main():
                 parse_evtx_file(evtx_file)
             except:
                 log.error("Unable to Process {} via evtx_map...Skipping".format(evtx_file))
-    if connections_df:
-        pass
+    if len(df) > 0:
+        results = print_evtx_stats(df)
+        print(results)
+        if args.out_file:
+            try:
+                save_out_to_file(results, args.out_file)
+            except:
+                log.error("Unable to write results to file")
     else:
         log.error("No remote connection events were found in these evtx logs")
 
@@ -73,6 +81,8 @@ def save_df_to_sql(df):
     '''
     pass
 
+def save_out_to_file(results, out_file):
+    pass
 
 def print_evtx_stats(df):
     '''
@@ -80,7 +90,37 @@ def print_evtx_stats(df):
     :param df:
     :return: print output for stdout about stats
     '''
-    pass
+
+    global_out = "\
+Total Remote RDP Connections: {}\n\
+Total Targeted Hosts: {} ({})\n\
+Remote Connections observed from {} different countries and {} locations\n\
+Countries Observed:\n\
+\t{}\
+".format(len(df), len(df.groupby('target_cname').count()),
+             ', '.join(df.target_cname.unique()), len(df.groupby('src_country').size()),
+             len(df.groupby('src_coordinates').size()), '\n\t'.join(df.src_country.unique()))
+
+    for target in df.target_cname.unique():
+        host_out = "[[Remote Connections to {}]]\n".format(target)
+        for index, row in df.loc[df['target_cname'] == target].iterrows():
+            host_out += "From {} ({}) by {} on {} [Coordinates: {}]\n".format(row['src_ip'], row['src_country'],
+                                                                              row['user_sid'], row['datetime'],
+                                                                              row['src_coordinates'])
+    output = '\
+==============================================================\n\
+EVTMAP OUTPUT \n\
+==============================================================\n\
+--------------------------------------------------------------\n\
+Global Statistics \n\
+--------------------------------------------------------------\n\n\
+{}\n\n\
+--------------------------------------------------------------\n\
+Host Specific Results \n\
+--------------------------------------------------------------\n\n\
+{}\n\
+'.format(global_out, host_out)
+    return output
 
 def parse_evtx_file(evtx_file):
     '''
@@ -99,8 +139,8 @@ def parse_evtx_file(evtx_file):
                                                      reader.get(src_ip)['location']['longitude']
                     log.info("{}, {}, {}, {} ({}) | Lat/Long: {}, {}".format(date_time, target_cname, user_sid, src_ip,
                                                                           src_country, src_lat, src_long))
-                    connections_df.loc[len(connections_df)] = [pd.to_datetime(date_time, errors='coerce'), target_cname,
-                                                               user_sid, src_ip, src_country,
+                    df.loc[len(df)] = [pd.to_datetime(date_time, errors='coerce'), target_cname,
+                                       user_sid, src_ip, src_country,
                                                                "{},{}".format(src_lat, src_long)]
 
 def parse_input(input):
