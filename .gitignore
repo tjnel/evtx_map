@@ -247,6 +247,7 @@ Scripts/
 
 # Test
 test/
+output/
 
 # Shared
 pyvenv.cfg
